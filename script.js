@@ -1,7 +1,7 @@
 // ลิงก์ระบบหลังบ้านของคุณชาติชาย (ใส่ให้เรียบร้อยแล้วครับ)
 const API_URL = 'https://script.google.com/macros/s/AKfycbgyVud6KS3d8f2NksKVbyTgNd60sjuQIVA5_bw2WWatx_tnmaLRu7E77TL8_HcHsdLw/exec'; 
 // สั่งให้โหลดโมเดล AI จากใน GitHub ตัวเองโดยตรง ป้องกันการโดนบล็อก
-const MODEL_URL = './'; 
+const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models'; 
 
 const video = document.getElementById('video');
 const statusText = document.getElementById('status'); 
