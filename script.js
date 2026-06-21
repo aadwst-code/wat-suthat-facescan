@@ -19,7 +19,7 @@ function setScanMode(mode) {
 }
 
 // โหลด Models AI จากอินเทอร์เน็ต
-const MODEL_URL = 'https://aadwst-code.github.io/wat-suthat-facescan';
+const MODEL_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/models';
 
 Promise.all([
   faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
