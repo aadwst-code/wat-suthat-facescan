@@ -1,114 +1,126 @@
-const video = document.getElementById('video');
-const statusText = document.getElementById('statusText');
-
-// === ตรงนี้สำคัญมาก: เดี๋ยวเราต้องเอาลิงก์จาก Google Sheet (Web App URL) มาใส่ในเครื่องหมายคำพูดด้านล่าง ===
-const API_URL = 'https://script.google.com/macros/s/AKfycbwz0vvONcnlbjLMSukAazGWfNCaFUecieWwmpCA1jopr1cGBqPbJWrgPXrwwz9l5gPPGQ/exec'; 
-
-let scanMode = 'เข้า';
-let labeledFaceDescriptors = [];
-let isScanning = false;
-
-function setScanMode(mode) {
-    scanMode = mode;
-    document.getElementById('currentMode').innerText = mode;
-    if(mode === 'เข้า') {
-        document.getElementById('currentMode').style.color = '#1a73e8';
-    } else {
-        document.getElementById('currentMode').style.color = '#d32f2f';
-    }
-}
-
-// โหลด Models AI จากอินเทอร์เน็ต
+// นำ Web App URL อันใหม่ที่เพิ่ง Deploy มาวางที่นี่ครับ!!!
+const API_URL = 'https://script.google.com/macros/s/AKfycbwUZ85arV2wdp_pAiOR2Ceqm-EalSCtqpPboOzV3MzRpT6u63KeeTPnevc7oZFkfjybiQ/exec'; 
 const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
 
-Promise.all([
-  faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-  faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
-  faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL)
-]).then(startVideo).then(loadStudentData).catch(err => {
-    statusText.innerText = "เกิดข้อผิดพลาดในการโหลด AI";
-    console.error(err);
-});
+const video = document.getElementById('video');
+const statusText = document.getElementById('status'); // ต้องมีแท็ก <p id="status"></p> ในหน้า index.html
+let faceMatcher;
+let isScanning = false;
 
-function startVideo() {
-  navigator.mediaDevices.getUserMedia({ video: {} })
-    .then(stream => video.srcObject = stream)
-    .catch(err => {
-        console.error("ไม่สามารถเปิดกล้องได้", err);
-        statusText.innerText = "ไม่สามารถเปิดกล้องได้ กรุณาอนุญาตการเข้าถึงกล้อง";
-        statusText.style.color = "red";
-    });
-}
+// 1. โหลดโมเดล AI และดึงข้อมูลใบหน้าจาก Google Sheet
+async function startSystem() {
+    statusText.innerText = "กำลังเชื่อมต่อระบบ AI และดาวน์โหลดฐานข้อมูล...";
+    
+    // โหลดสมอง AI
+    await Promise.all([
+        faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+    ]);
 
-async function loadStudentData() {
-    statusText.innerText = "กำลังดาวน์โหลดฐานข้อมูลใบหน้าจาก Google Sheet...";
+    // โหลดฐานข้อมูลใบหน้าที่ลงทะเบียนไว้จาก Google Sheet
     try {
         const response = await fetch(API_URL);
         const students = await response.json();
         
-        labeledFaceDescriptors = students.map(student => {
-            const floatArray = new Float32Array(student.descriptor);
-            return new faceapi.LabeledFaceDescriptors(student.id, [floatArray]);
+        const labeledFaceDescriptors = students.map(student => {
+            const descriptorArray = new Float32Array(student.descriptor);
+            return new faceapi.LabeledFaceDescriptors(student.id, [descriptorArray]);
         });
-        statusText.innerText = "ระบบพร้อมใช้งาน กรุณาเดินผ่านกล้อง";
+
+        if (labeledFaceDescriptors.length > 0) {
+            // สร้างตัวตรวจสอบใบหน้า (ความแม่นยำ 50%)
+            faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.5); 
+            statusText.innerText = "✅ ดาวน์โหลดฐานข้อมูลเรียบร้อย กำลังเปิดกล้อง...";
+            startVideo();
+        } else {
+            statusText.innerText = "❌ ยังไม่มีข้อมูลใบหน้าในระบบ กรุณาลงทะเบียนก่อน";
+        }
     } catch (error) {
-        statusText.innerText = "รอการเชื่อมต่อฐานข้อมูล (กรุณาใส่ API_URL ให้ถูกต้อง)";
-        statusText.style.color = "orange";
+        console.error(error);
+        statusText.innerText = "❌ เชื่อมต่อฐานข้อมูลล้มเหลว";
     }
 }
 
+// 2. เปิดกล้อง
+function startVideo() {
+    navigator.mediaDevices.getUserMedia({ video: {} })
+        .then(stream => {
+            video.srcObject = stream;
+            statusText.innerText = "🎥 ระบบสแกนพร้อมใช้งาน";
+        })
+        .catch(err => console.error("Camera error:", err));
+}
+
+// 3. เริ่มสแกนเวลาเดินผ่าน
 video.addEventListener('play', () => {
-  const canvas = faceapi.createCanvasFromMedia(video);
-  document.getElementById('videoContainer').append(canvas);
-  const displaySize = { width: video.width, height: video.height };
-  faceapi.matchDimensions(canvas, displaySize);
+    // สร้าง Canvas เพื่อใช้วาดกรอบสี่เหลี่ยมทับวิดีโอ
+    const canvas = faceapi.createCanvasFromMedia(video);
+    document.body.append(canvas);
+    const displaySize = { width: video.width, height: video.height };
+    faceapi.matchDimensions(canvas, displaySize);
 
-  setInterval(async () => {
-    if (labeledFaceDescriptors.length === 0 || isScanning) return;
+    setInterval(async () => {
+        if (!faceMatcher) return; // ถ้ายอดฐานข้อมูลยังไม่มา ให้รอไปก่อน
 
-    const detections = await faceapi.detectAllFaces(video)
-        .withFaceLandmarks().withFaceDescriptors();
-    const resizedDetections = faceapi.resizeResults(detections, displaySize);
-    
-    canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
-    faceapi.draw.drawDetections(canvas, resizedDetections);
-
-    if (detections.length > 0) {
-        const faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.6);
-        const bestMatch = faceMatcher.findBestMatch(detections[0].descriptor);
+        const detections = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors();
+        const resizedDetections = faceapi.resizeResults(detections, displaySize);
         
-        if (bestMatch.label !== 'unknown') {
-            processAttendance(bestMatch.label);
-        } else {
-            statusText.innerText = "ไม่พบข้อมูลในระบบ กรุณาลองใหม่";
-            statusText.style.color = "red";
+        canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+
+        for (const detection of resizedDetections) {
+            const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
+            
+            // วาดกรอบและชื่อบนหน้าจอ (โชว์รหัสนักเรียน)
+            const box = detection.detection.box;
+            const drawBox = new faceapi.draw.DrawBox(box, { label: bestMatch.label });
+            drawBox.draw(canvas);
+
+            // ถ้าตรวจเจอคนที่มีในระบบ และยังไม่ได้สแกน (ป้องกันการส่งรัวๆ)
+            if (bestMatch.label !== 'unknown' && !isScanning) {
+                isScanning = true;
+                const studentId = bestMatch.label;
+                statusText.innerText = `⏳ กำลังบันทึกข้อมูลรหัส: ${studentId}...`;
+
+                // 📸 แอบถ่ายรูปจากวิดีโอ
+                const snapCanvas = document.createElement('canvas');
+                snapCanvas.width = video.videoWidth;
+                snapCanvas.height = video.videoHeight;
+                snapCanvas.getContext('2d').drawImage(video, 0, 0);
+                // ตัดเอาเฉพาะเนื้อหา Base64 ไปส่ง (ไม่เอาหัว 'data:image/jpeg;base64,')
+                const imageBase64 = snapCanvas.toDataURL('image/jpeg', 0.6).split(',')[1]; 
+
+                try {
+                    // ส่งข้อมูล + รูปภาพ ไปที่ Google Sheet
+                    const res = await fetch(API_URL, {
+                        method: 'POST',
+                        body: JSON.stringify({ 
+                            action: 'logScan', 
+                            studentId: studentId, 
+                            status: 'สแกนเข้าโรงเรียน',
+                            image: imageBase64 
+                        })
+                    });
+                    const result = await res.json();
+                    
+                    if(result.status === 'success') {
+                        statusText.innerText = `✅ บันทึกสำเร็จ: ${result.name}`;
+                        statusText.style.color = "green";
+                    }
+                } catch(e) {
+                    console.error("Error sending data:", e);
+                }
+
+                // สั่งให้หน่วงเวลา 5 วินาที ก่อนที่จะสแกนคนต่อไปได้ (แก้ปัญหาการยิง Telegram รัวๆ)
+                setTimeout(() => {
+                    isScanning = false;
+                    statusText.innerText = "🎥 ระบบสแกนพร้อมใช้งาน";
+                    statusText.style.color = "black";
+                }, 5000);
+            }
         }
-    }
-  }, 1500); 
+    }, 1000); // เช็กใบหน้าทุกๆ 1 วินาที
 });
 
-async function processAttendance(studentId) {
-    isScanning = true;
-    statusText.innerText = `กำลังบันทึกข้อมูล...`;
-    
-    try {
-        const res = await fetch(API_URL, {
-            method: 'POST',
-            body: JSON.stringify({ action: 'logScan', studentId: studentId, status: scanMode })
-        });
-        const result = await res.json();
-        
-        if (result.status === 'success') {
-            statusText.innerText = `บันทึกสำเร็จ: ${result.name} (${scanMode})`;
-            statusText.style.color = "green";
-        }
-    } catch (error) {
-        statusText.innerText = "บันทึกไม่ได้ ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต";
-    }
-
-    setTimeout(() => { 
-        statusText.innerText = "ระบบพร้อมใช้งาน";
-        statusText.style.color = "#2e7d32";
-        isScanning = false; 
-    }, 4000);
-}
+// สั่งเริ่มระบบ
+window.onload = startSystem;
