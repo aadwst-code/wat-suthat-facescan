@@ -7,10 +7,11 @@
     <style>
         body { font-family: 'Sarabun', sans-serif; text-align: center; background: #f0f2f5; margin: 0; padding: 20px; }
         .box { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 700px; margin: auto; }
-        video { border: 3px solid #1a73e8; border-radius: 8px; margin-top: 15px; max-width: 100%; height: auto; }
+        video { border: 3px solid #1a73e8; border-radius: 8px; margin-top: 15px; width: 640px; max-width: 100%; height: auto; background-color: #000; }
         input { padding: 12px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc; margin: 10px; width: 60%; }
         button { padding: 12px 25px; font-size: 16px; cursor: pointer; background: #2e7d32; color: white; border: none; border-radius: 5px; font-weight: bold; }
         button:hover { background: #1b5e20; }
+        button:disabled { background: #9e9e9e; cursor: not-allowed; }
         #status { font-size: 18px; font-weight: bold; color: #1a73e8; margin-top: 15px; }
     </style>
 </head>
@@ -18,52 +19,66 @@
 
     <div class="box">
         <h1 style="margin-top: 0; color: #1a73e8;">ระบบลงทะเบียนใบหน้าใหม่</h1>
-        <p>ให้นักเรียนมองกล้อง แล้วกดปุ่มบันทึกใบหน้า</p>
+        <p>รอจนกว่ากล้องจะแสดงภาพ จากนั้นกรอกรหัสนักเรียนแล้วกดบันทึก</p>
         
         <input type="text" id="studentId" placeholder="ใส่เลขประจำตัวนักเรียน เช่น 5565">
-        <button onclick="captureFace()">📷 บันทึกใบหน้า</button>
+        <button id="btnSave" onclick="captureFace()" disabled>📷 บันทึกใบหน้า</button>
         
-        <p id="status">กำลังโหลดกล้อง...</p>
-        <video id="video" autoplay muted></video>
+        <p id="status">กำลังโหลดระบบ AI กรุณารอสักครู่...</p>
+        <video id="video" autoplay muted playsinline></video>
     </div>
 
     <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <script>
         const video = document.getElementById('video');
         const statusText = document.getElementById('status');
+        const btnSave = document.getElementById('btnSave');
         
         // === สำคัญ: นำลิงก์ Web App URL จาก Google Sheet มาใส่ตรงนี้ด้วยครับ ===
         const API_URL = 'https://script.google.com/macros/s/AKfycbx07MZwTDZ8yCQ93VASlSaRi0wlai57wN4spNQK-3bQtFPZ43iXPHscvr1jQXVKrQD4tg/exec'; 
 
+        // ใช้ลิงก์ AI ตัวใหม่ที่ทำงานได้แน่นอน
         const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+
         Promise.all([
           faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
           faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
           faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
         ]).then(() => {
-            statusText.innerText = "กล้องพร้อมใช้งานแล้ว";
-            navigator.mediaDevices.getUserMedia({ video: {} }).then(stream => video.srcObject = stream);
+            statusText.innerText = "AI พร้อมแล้ว กำลังเปิดกล้อง...";
+            return navigator.mediaDevices.getUserMedia({ video: {} });
+        }).then(stream => {
+            video.srcObject = stream;
+            statusText.innerText = "✅ กล้องพร้อมใช้งานแล้ว กรอกรหัสแล้วกดบันทึกได้เลย";
+            statusText.style.color = "green";
+            btnSave.disabled = false; // ปลดล็อกปุ่มให้กดได้
+        }).catch(err => {
+            console.error(err);
+            statusText.innerText = "❌ ไม่สามารถเปิดกล้องได้ (กรุณาอนุญาตให้บราวเซอร์เข้าถึงกล้อง)";
+            statusText.style.color = "red";
         });
 
         async function captureFace() {
             const studentId = document.getElementById('studentId').value;
             if(!studentId) return alert("กรุณากรอกรหัสนักเรียนก่อนครับ!");
 
+            btnSave.disabled = true; // ล็อกปุ่มชั่วคราวกันกดซ้ำ
             statusText.innerText = "กำลังสแกนใบหน้า... กรุณามองกล้องนิ่งๆ 📸";
             statusText.style.color = "orange";
             
-            const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
-
-            if (!detection) {
-                statusText.innerText = "❌ ไม่พบใบหน้า (หรือแสงไม่พอ) กรุณาลองใหม่";
-                statusText.style.color = "red";
-                return;
-            }
-
-            const descriptor = Array.from(detection.descriptor);
-            statusText.innerText = "กำลังส่งข้อมูลใบหน้าไปที่ Google Sheet... ⏳";
-
             try {
+                const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+
+                if (!detection) {
+                    statusText.innerText = "❌ ไม่พบใบหน้า (ขยับหน้าเข้าใกล้กล้องอีกนิด หรือเพิ่มแสงสว่าง) กรุณาลองใหม่";
+                    statusText.style.color = "red";
+                    btnSave.disabled = false;
+                    return;
+                }
+
+                const descriptor = Array.from(detection.descriptor);
+                statusText.innerText = "กำลังส่งข้อมูลใบหน้าไปที่ Google Sheet... ⏳";
+
                 const res = await fetch(API_URL, {
                     method: 'POST',
                     body: JSON.stringify({ action: 'registerFace', studentId: studentId, descriptor: descriptor })
@@ -73,15 +88,18 @@
                 if(result.status === 'success') {
                     statusText.innerText = "✅ ลงทะเบียนใบหน้าสำเร็จ! ข้อมูลถูกบันทึกแล้ว";
                     statusText.style.color = "green";
-                    document.getElementById('studentId').value = ""; // เคลียร์ช่อง
+                    document.getElementById('studentId').value = ""; 
                 } else {
                     statusText.innerText = "❌ ผิดพลาด: " + result.msg;
                     statusText.style.color = "red";
                 }
             } catch(e) {
-                statusText.innerText = "เกิดข้อผิดพลาดในการเชื่อมต่ออินเทอร์เน็ต";
+                console.error(e);
+                statusText.innerText = "❌ เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่";
                 statusText.style.color = "red";
             }
+            
+            btnSave.disabled = false; // ปลดล็อกปุ่มให้ใช้งานต่อได้
         }
     </script>
 </body>
