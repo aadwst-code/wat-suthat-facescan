@@ -35,7 +35,7 @@
         // === สำคัญ: นำลิงก์ Web App URL จาก Google Sheet มาใส่ตรงนี้ด้วยครับ ===
         const API_URL = 'https://script.google.com/macros/s/AKfycbx07MZwTDZ8yCQ93VASlSaRi0wlai57wN4spNQK-3bQtFPZ43iXPHscvr1jQXVKrQD4tg/exec'; 
 
-        const MODEL_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/models';
+        const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
         Promise.all([
           faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
           faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
