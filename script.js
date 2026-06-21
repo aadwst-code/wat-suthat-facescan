@@ -2,7 +2,7 @@ const video = document.getElementById('video');
 const statusText = document.getElementById('statusText');
 
 // === ตรงนี้สำคัญมาก: เดี๋ยวเราต้องเอาลิงก์จาก Google Sheet (Web App URL) มาใส่ในเครื่องหมายคำพูดด้านล่าง ===
-const API_URL = 'https://script.google.com/macros/s/AKfycbygVuD6KS3d8f2NksKVbyTgNd6OsjuQIVA5_bw20WVatx_tnmaLRu7E7T77L8_HcHsdLw/exec'; 
+const API_URL = 'https://script.google.com/macros/s/AKfycbwz0vvONcnlbjLMSukAazGWfNCaFUecieWwmpCA1jopr1cGBqPbJWrgPXrwwz9l5gPPGQ/exec'; 
 
 let scanMode = 'เข้า';
 let labeledFaceDescriptors = [];
