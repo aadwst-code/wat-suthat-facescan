@@ -4,57 +4,45 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ระบบสแกนใบหน้า - โรงเรียนวัดสุทัศน์</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="face-api.min.js"></script>
     <style>
-        body { font-family: 'Sarabun', sans-serif; background-color: #f0f2f5; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: center; }
-        .header { background: #1a73e8; color: white; width: 100%; padding: 20px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .container { margin-top: 30px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; }
-        video { border-radius: 8px; border: 3px solid #1a73e8; width: 640px; height: 480px; object-fit: cover; }
-        canvas { position: absolute; top: 0; left: 0; }
-        .video-container { position: relative; display: inline-block; margin-top: 15px; }
-        .status { margin-top: 20px; font-size: 24px; font-weight: bold; color: #2e7d32; }
-        .footer { margin-top: 40px; margin-bottom: 20px; color: #555; font-size: 14px; text-align: center; }
-        .controls { margin-top: 15px; }
-        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #1a73e8; color: white; border: none; border-radius: 5px; margin: 5px; font-weight: bold; }
-        button:hover { background: #1557b0; }
+        body { background-color: #f8f9fa; font-family: 'ChulaCharasNew', sans-serif; }
+        .video-container { position: relative; max-width: 640px; margin: 0 auto; border: 4px solid #0d6efd; border-radius: 10px; overflow: hidden; background: #000; }
+        video { width: 100%; height: auto; display: block; transform: scaleX(-1); }
+        canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: scaleX(-1); pointer-events: none; }
+        .status-box { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-top: 20px; }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <h1 style="margin: 0;">ระบบสแกนใบหน้า เข้า-ออก โรงเรียนวัดสุทัศน์</h1>
-        <p style="margin: 5px 0 0 0;">สำนักงานเขตพระนคร กรุงเทพมหานคร</p>
-    </div>
+    <div class="container text-center my-4">
+        <h2 class="fw-bold text-primary mb-1">🏫 ระบบสแกनใบหน้าเข้า-ออกเรียน</h2>
+        <p class="text-muted">โรงเรียนวัดสุทัศน์ สำนักงานเขตพระนคร</p>
 
-    <div class="container">
-        <div class="controls">
-            <button onclick="setScanMode('เข้า')">โหมด: สแกนเข้าโรงเรียน</button>
-            <button onclick="setScanMode('ออก')" style="background:#d32f2f;">โหมด: สแกนกลับบ้าน</button>
+        <div class="video-container shadow-sm">
+            <video id="video" autoplay muted playsinline width="640" height="480"></video>
         </div>
-        <p>สถานะปัจจุบัน: <span id="currentMode" style="font-weight:bold; color:#1a73e8; font-size: 20px;">เข้า</span></p>
-        
-        <div class="video-container" id="videoContainer">
-            <video id="video" autoplay muted></video>
+
+        <div class="max-width: 640px; margin: 0 auto;" style="max-width: 640px; margin: 20px auto 0 auto;">
+            <div class="status-box">
+                <h4 id="status" class="fw-bold text-success m-0">⏳ ระบบกำลังเริ่มต้นทำงาน...</h4>
+            </div>
+            <a href="register.html" class="btn btn-outline-secondary mt-3 btn-sm">🔗 ไปหน้าลงทะเบียนนักเรียนใหม่</a>
         </div>
-        <div class="status" id="statusText">กำลังโหลดระบบ AI กรุณารอสักครู่...</div>
     </div>
 
-    <div class="footer">
-        <p>พัฒนาระบบโดย: <strong>นายชาติชาย สมานทอง</strong></p>
-    </div>
-
-    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-    <!-- คัดลอกตั้งแต่บรรทัดนี้เป็นต้นไป -->
-<!-- คัดลอกตั้งแต่บรรทัดนี้ลงไปแทนที่ของเดิมได้เลยครับ -->
 <script>
-const API_URL = 'https://script.google.com/macros/s/AKfycbxRI4QYBHaPFyzBxtOpOBZVqPCmQUjAkHiegPaXvenwirdruysj2GxPd6wSVnzSWbvmeg/exec'; 
-const MODEL_URL = 'https://aadwst-code.github.io/wat-suthat-facescan/'; 
+// ลิงก์ระบบหลังบ้านและคลังสมอง AI ของคุณชาติชาย
+const API_URL = 'https://script.google.com/macros/s/AKfycbgyVud6KS3d8f2NksKVbyTgNd60sjuQIVA5_bw2WWatx_tnmaLRu7E77TL8_HcHsdLw/exec'; 
+const MODEL_URL = 'https://aadwst-code.github.io/wat-suthat-facescan'; 
 
 const video = document.getElementById('video');
-let statusText = document.getElementById('status') || document.querySelector('.text-success') || document.body; 
+const statusText = document.getElementById('status');
 let faceMatcher;
 let isScanning = false;
 
-// ฟังก์ชันสำหรับบังคับเปลี่ยนข้อความแจ้งสถานะหน้าจอ
+// ฟังก์ชันบังคับเปลี่ยนข้อความรายงานบนหน้าจอ
 function reportStatus(text, color = "blue") {
     if (statusText) {
         statusText.innerText = text;
@@ -64,41 +52,30 @@ function reportStatus(text, color = "blue") {
 
 async function startSystem() {
     try {
-        // ก้าวที่ 1: ตรวจสอบไลบรารีหลัก
-        reportStatus("⏳ [ขั้นตอนที่ 1/4] กำลังตรวจสอบตัวควบคุม AI (faceapi)...", "#b45309");
+        // ขั้นตอนที่ 1: ตรวจสอบตัวควบคุม AI
+        reportStatus("⏳ [1/4] กำลังตรวจสอบตัวควบคุม AI (faceapi)...", "#b45309");
         if (typeof faceapi === 'undefined') {
-            document.write("<h3 style='color:red;padding:20px;'>❌ พังที่ขั้นตอน 1: ไม่พบไฟล์ face-api.js ในระบบ กรุณาตรวจสอบว่าใน index.html มีบรรทัดสคริปต์โหลดไฟล์นี้อยู่ด้านบนไหม</h3>");
+            reportStatus("❌ พังที่ขั้นตอน 1: หาไฟล์ face-api.min.js ไม่เจอในโฟลเดอร์", "red");
             return;
         }
 
-        // ก้าวที่ 2: ดึงฐานข้อมูลจาก Google Sheet
-        reportStatus("⏳ [ขั้นตอนที่ 2/4] กำลังเชื่อมต่อดึงรายชื่อจาก Google Sheet...", "#b45309");
+        // ขั้นตอนที่ 2: ดึงรายชื่อจากกูเกิลชีต
+        reportStatus("⏳ [2/4] กำลังเชื่อมต่อดึงรายชื่อจาก Google Sheet...", "#b45309");
         const response = await fetch(API_URL).catch(err => {
-            throw new Error("อินเทอร์เน็ตหรือลิงก์ Web App URL มีปัญหา (Fetch Failed)");
+            throw new Error("อินเทอร์เน็ตหรือลิงก์ Web App URL ในกูเกิลสคริปต์ปิดกั้น (Fetch Failed)");
         });
         const students = await response.json();
         
-        // ก้าวที่ 3: โหลดสมอง AI
-        reportStatus("⏳ [ขั้นตอนที่ 3/4] กำลังดาวน์โหลดไฟล์สมอง AI จาก GitHub...", "#1e40af");
-        try {
-            // ลองโหลดจากโฟลเดอร์หลักก่อน
-            await Promise.all([
-                faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-                faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-                faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-            ]);
-        } catch(e) {
-            // ถ้าไม่เจอ ให้ลองดึงจากโฟลเดอร์ย่อย /models/
-            reportStatus("⏳ ไม่พบไฟล์ในโฟลเดอร์หลัก กำลังค้นหาในโฟลเดอร์ /models/ ...", "#1e40af");
-            await Promise.all([
-                faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL + 'models/'),
-                faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL + 'models/'),
-                faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL + 'models/')
-            ]);
-        }
+        // ขั้นตอนที่ 3: โหลดสมอง AI (ชี้เป้าไปที่โฟลเดอร์หลักโดยตรง)
+        reportStatus("⏳ [3/4] กำลังดาวน์โหลดไฟล์สมอง AI จาก GitHub...", "#1e40af");
+        await Promise.all([
+            faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+            faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+            faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+        ]);
 
-        // ก้าวที่ 4: จัดเตรียมการเปรียบเทียบใบหน้า
-        reportStatus("⏳ [ขั้นตอนที่ 4/4] กำลังประมวลผลฐานข้อมูลใบหน้า...", "#1e40af");
+        // ขั้นตอนที่ 4: จัดเตรียมการเปรียบเทียบใบหน้า
+        reportStatus("⏳ [4/4] กำลังประมวลผลฐานข้อมูลใบหน้า...", "#1e40af");
         const labeledFaceDescriptors = students.map(student => {
             if (!student.descriptor || student.descriptor.length === 0) return null;
             return new faceapi.LabeledFaceDescriptors(student.id, [new Float32Array(student.descriptor)]);
@@ -109,12 +86,11 @@ async function startSystem() {
             reportStatus("✅ ระบบพร้อมใช้งาน 100% กำลังเปิดกล้อง...", "green");
             startVideo();
         } else {
-            reportStatus("⚠️ ตรวจสอบสำเร็จ แต่คอลัมน์ L ในกูเกิลชีตยังว่างเปล่า (กรุณาไปลงทะเบียนใบหน้าก่อนนะครู)", "#d97706");
+            reportStatus("⚠️ เชื่อมต่อสำเร็จ! แต่คอลัมน์ L ใน Google Sheet ว่างเปล่า (กรุณาลงทะเบียนใบหน้าก่อน)", "#d97706");
             startVideo();
         }
 
     } catch (error) {
-        // หากมีจุดใดพัง ข้อความสีเขียวจะกลายเป็นสีแดง และบอกสาเหตุทันที!
         reportStatus(`❌ พังเพราะ: ${error.message}`, "red");
         console.error(error);
     }
@@ -125,15 +101,15 @@ function startVideo() {
     navigator.mediaDevices.getUserMedia({ video: {} })
         .then(stream => { video.srcObject = stream; })
         .catch(err => {
-            reportStatus("❌ ไม่สามารถเปิดกล้องได้ (กรุณากดอนุญาตให้สิทธิ์เข้าถึงกล้องในเบราว์เซอร์)", "red");
+            reportStatus("❌ ไม่สามารถเปิดกล้องได้ (กรุณากดอนุญาตให้สิทธิ์เข้าถึงกล้องบนเบราว์เซอร์)", "red");
         });
 }
 
 if (video) {
     video.addEventListener('play', () => {
         const canvas = faceapi.createCanvasFromMedia(video);
-        document.body.append(canvas);
-        const displaySize = { width: video.width, height: video.height };
+        document.querySelector('.video-container').append(canvas);
+        const displaySize = { width: video.clientWidth, height: video.clientHeight };
         faceapi.matchDimensions(canvas, displaySize);
 
         setInterval(async () => {
@@ -145,6 +121,8 @@ if (video) {
 
             for (const detection of resizedDetections) {
                 const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
+                
+                // วาดกล่องจับใบหน้า
                 new faceapi.draw.DrawBox(detection.detection.box, { label: bestMatch.label }).draw(canvas);
 
                 if (bestMatch.label !== 'unknown' && !isScanning) {
@@ -179,13 +157,12 @@ if (video) {
     });
 }
 
-// สั่งลุยระบบทันที
+// สั่งรันระบบทันทีที่โหลดหน้าเว็บ
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', startSystem);
 } else {
     startSystem();
 }
 </script>
-<!-- สิ้นสุดซอร์สโค้ดที่จะนำไปวางครับ -->
 </body>
 </html>
