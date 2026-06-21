@@ -19,7 +19,7 @@ function setScanMode(mode) {
 }
 
 // โหลด Models AI จากอินเทอร์เน็ต
-const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/models';
+const MODEL_URL = '.';
 
 Promise.all([
   faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
