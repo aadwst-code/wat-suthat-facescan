@@ -7,162 +7,140 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <style>
-        body { background-color: #f8f9fa; font-family: 'ChulaCharasNew', sans-serif; }
+        body { background-color: #f8f9fa; font-family: sans-serif; }
         .video-container { position: relative; max-width: 640px; margin: 0 auto; border: 4px solid #0d6efd; border-radius: 10px; overflow: hidden; background: #000; }
         video { width: 100%; height: auto; display: block; transform: scaleX(-1); }
         canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform: scaleX(-1); pointer-events: none; }
-        .status-box { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-top: 20px; }
+        .status-box { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-top: 20px; text-align: center;}
     </style>
 </head>
 <body>
-
     <div class="container text-center my-4">
-        <h2 class="fw-bold text-primary mb-1">🏫 ระบบสแกनใบหน้าเข้า-ออกเรียน</h2>
+        <h2 class="fw-bold text-primary mb-1">🏫 ระบบสแกนใบหน้าเข้า-ออก</h2>
         <p class="text-muted">โรงเรียนวัดสุทัศน์ สำนักงานเขตพระนคร</p>
+        
+        <div class="mb-3">
+            <button class="btn btn-primary" onclick="setScanMode('เข้าโรงเรียน')">โหมด: สแกนเข้าโรงเรียน</button>
+            <button class="btn btn-danger" onclick="setScanMode('กลับบ้าน')">โหมด: สแกนกลับบ้าน</button>
+        </div>
+        <h5 class="mb-3">สถานะปัจจุบัน: <span id="modeDisplay" class="text-primary fw-bold">เข้าโรงเรียน</span></h5>
 
         <div class="video-container shadow-sm">
             <video id="video" autoplay muted playsinline width="640" height="480"></video>
         </div>
 
-        <div class="max-width: 640px; margin: 0 auto;" style="max-width: 640px; margin: 20px auto 0 auto;">
+        <div style="max-width: 640px; margin: 0 auto;">
             <div class="status-box">
-                <h4 id="status" class="fw-bold text-success m-0">⏳ ระบบกำลังเริ่มต้นทำงาน...</h4>
+                <h5 id="status" class="fw-bold text-success m-0">⏳ กำลังโหลดระบบ AI...</h5>
             </div>
-            <a href="register.html" class="btn btn-outline-secondary mt-3 btn-sm">🔗 ไปหน้าลงทะเบียนนักเรียนใหม่</a>
+            <div class="mt-3">
+                <a href="register.html" class="btn btn-outline-secondary btn-sm">🔗 ไปหน้าลงทะเบียนใบหน้า</a>
+            </div>
         </div>
     </div>
 
 <script>
-// ลิงก์ระบบหลังบ้านและคลังสมอง AI ของคุณชาติชาย
-const API_URL = 'https://script.google.com/macros/s/AKfycbz0IVSGApfnjuoYS1dE80B8CRQbF_RPVPVHfGGuWiZhA9Bc1g1pnkFB6oluuOusqGGUyg/exec'; 
+// 🚨 นำลิงก์ Web App URL ตัวใหม่มาวางในเครื่องหมายคำพูดด้านล่างนี้
+const API_URL = 'https://script.google.com/macros/s/AKfycbw3lN_REvDhfQmdyKWJihcuNmWH_RtUdemK0sihGIHSmVZ643PwkigKz1xm14Q25LzMHw/exec'; 
 const MODEL_URL = 'https://aadwst-code.github.io/wat-suthat-facescan'; 
 
-const video = document.getElementById('video');
-const statusText = document.getElementById('status');
-let faceMatcher;
+let currentScanMode = 'เข้าโรงเรียน';
 let isScanning = false;
+let faceMatcher;
 
-// ฟังก์ชันบังคับเปลี่ยนข้อความรายงานบนหน้าจอ
+function setScanMode(mode) {
+    currentScanMode = mode;
+    document.getElementById('modeDisplay').innerText = mode;
+    document.getElementById('modeDisplay').className = mode === 'เข้าโรงเรียน' ? 'text-primary fw-bold' : 'text-danger fw-bold';
+}
+
 function reportStatus(text, color = "blue") {
-    if (statusText) {
-        statusText.innerText = text;
-        statusText.style.color = color;
-    }
+    const st = document.getElementById('status');
+    if (st) { st.innerText = text; st.style.color = color; }
 }
 
 async function startSystem() {
     try {
-        // ขั้นตอนที่ 1: ตรวจสอบตัวควบคุม AI
-        reportStatus("⏳ [1/4] กำลังตรวจสอบตัวควบคุม AI (faceapi)...", "#b45309");
-        if (typeof faceapi === 'undefined') {
-            reportStatus("❌ พังที่ขั้นตอน 1: หาไฟล์ face-api.min.js ไม่เจอในโฟลเดอร์", "red");
-            return;
-        }
-
-        // ขั้นตอนที่ 2: ดึงรายชื่อจากกูเกิลชีต
-        reportStatus("⏳ [2/4] กำลังเชื่อมต่อดึงรายชื่อจาก Google Sheet...", "#b45309");
-        const response = await fetch(API_URL).catch(err => {
-            throw new Error("อินเทอร์เน็ตหรือลิงก์ Web App URL ในกูเกิลสคริปต์ปิดกั้น (Fetch Failed)");
-        });
-        const students = await response.json();
+        if (typeof faceapi === 'undefined') throw new Error("โหลดสมอง AI ล้มเหลว (face-api.js)");
         
-        // ขั้นตอนที่ 3: โหลดสมอง AI (ชี้เป้าไปที่โฟลเดอร์หลักโดยตรง)
-        reportStatus("⏳ [3/4] กำลังดาวน์โหลดไฟล์สมอง AI จาก GitHub...", "#1e40af");
+        reportStatus("⏳ [1/3] กำลังโหลดสมอง AI...");
         await Promise.all([
             faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
             faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
             faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
         ]);
 
-        // ขั้นตอนที่ 4: จัดเตรียมการเปรียบเทียบใบหน้า
-        reportStatus("⏳ [4/4] กำลังประมวลผลฐานข้อมูลใบหน้า...", "#1e40af");
-        const labeledFaceDescriptors = students.map(student => {
-            if (!student.descriptor || student.descriptor.length === 0) return null;
-            return new faceapi.LabeledFaceDescriptors(student.id, [new Float32Array(student.descriptor)]);
+        reportStatus("⏳ [2/3] กำลังดึงฐานข้อมูลรายชื่อ...");
+        const response = await fetch(API_URL);
+        const students = await response.json();
+
+        reportStatus("⏳ [3/3] กำลังเตรียมข้อมูลใบหน้า...");
+        const labeledDescriptors = students.map(s => {
+            if (!s.descriptor) return null;
+            return new faceapi.LabeledFaceDescriptors(s.id, [new Float32Array(s.descriptor)]);
         }).filter(item => item !== null);
 
-        if (labeledFaceDescriptors.length > 0) {
-            faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.5); 
-            reportStatus("✅ ระบบพร้อมใช้งาน 100% กำลังเปิดกล้อง...", "green");
+        if (labeledDescriptors.length > 0) {
+            faceMatcher = new faceapi.FaceMatcher(labeledDescriptors, 0.5);
+            reportStatus("✅ ระบบพร้อมใช้งาน กำลังเปิดกล้อง...", "green");
             startVideo();
         } else {
-            reportStatus("⚠️ เชื่อมต่อสำเร็จ! แต่คอลัมน์ L ใน Google Sheet ว่างเปล่า (กรุณาลงทะเบียนใบหน้าก่อน)", "#d97706");
+            reportStatus("⚠️ ไม่มีข้อมูลใบหน้าในระบบ กรุณาลงทะเบียนก่อน", "red");
             startVideo();
         }
-
     } catch (error) {
-        reportStatus(`❌ พังเพราะ: ${error.message}`, "red");
-        console.error(error);
+        reportStatus(`❌ เกิดข้อผิดพลาด: ${error.message}`, "red");
     }
 }
 
 function startVideo() {
-    if (!video) return;
+    const video = document.getElementById('video');
     navigator.mediaDevices.getUserMedia({ video: {} })
         .then(stream => { video.srcObject = stream; })
-        .catch(err => {
-            reportStatus("❌ ไม่สามารถเปิดกล้องได้ (กรุณากดอนุญาตให้สิทธิ์เข้าถึงกล้องบนเบราว์เซอร์)", "red");
-        });
+        .catch(err => reportStatus("❌ ไม่สามารถเปิดกล้องได้", "red"));
 }
 
-if (video) {
-    video.addEventListener('play', () => {
-        const canvas = faceapi.createCanvasFromMedia(video);
-        document.querySelector('.video-container').append(canvas);
-        const displaySize = { width: video.clientWidth, height: video.clientHeight };
-        faceapi.matchDimensions(canvas, displaySize);
+document.getElementById('video').addEventListener('play', () => {
+    const video = document.getElementById('video');
+    const canvas = faceapi.createCanvasFromMedia(video);
+    document.querySelector('.video-container').append(canvas);
+    const displaySize = { width: video.clientWidth, height: video.clientHeight };
+    faceapi.matchDimensions(canvas, displaySize);
 
-        setInterval(async () => {
-            if (!faceMatcher || isScanning) return;
+    setInterval(async () => {
+        if (!faceMatcher || isScanning) return;
 
-            const detections = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors();
-            const resizedDetections = faceapi.resizeResults(detections, displaySize);
-            canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+        const detections = await faceapi.detectAllFaces(video).withFaceLandmarks().withFaceDescriptors();
+        const resizedDetections = faceapi.resizeResults(detections, displaySize);
+        canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
 
-            for (const detection of resizedDetections) {
-                const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
-                
-                // วาดกล่องจับใบหน้า
-                new faceapi.draw.DrawBox(detection.detection.box, { label: bestMatch.label }).draw(canvas);
+        for (const detection of resizedDetections) {
+            const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
+            new faceapi.draw.DrawBox(detection.detection.box, { label: bestMatch.label }).draw(canvas);
 
-                if (bestMatch.label !== 'unknown' && !isScanning) {
-                    isScanning = true;
-                    const studentId = bestMatch.label;
-                    reportStatus(`⏳ ตรวจพบรหัส: ${studentId} กำลังส่งข้อมูล...`, "#b45309");
+            if (bestMatch.label !== 'unknown' && !isScanning) {
+                isScanning = true;
+                reportStatus(`⏳ พบรหัส: ${bestMatch.label} กำลังส่งข้อมูล...`, "orange");
 
-                    const snapCanvas = document.createElement('canvas');
-                    snapCanvas.width = video.videoWidth;
-                    snapCanvas.height = video.videoHeight;
-                    snapCanvas.getContext('2d').drawImage(video, 0, 0);
-                    const imageBase64 = snapCanvas.toDataURL('image/jpeg', 0.5).split(',')[1]; 
+                const snapCanvas = document.createElement('canvas');
+                snapCanvas.width = video.videoWidth; snapCanvas.height = video.videoHeight;
+                snapCanvas.getContext('2d').drawImage(video, 0, 0);
+                const imageBase64 = snapCanvas.toDataURL('image/jpeg', 0.5).split(',')[1];
 
-                    try {
-                        const res = await fetch(API_URL, {
-                            method: 'POST',
-                            body: JSON.stringify({ action: 'logScan', studentId: studentId, status: 'สแกนเข้าโรงเรียน', image: imageBase64 })
-                        });
-                        const result = await res.json();
-                        if(result.status === 'success') {
-                            reportStatus(`🔔 บันทึกสำเร็จ: ${result.name}`, "blue");
-                        }
-                    } catch(e) {}
+                fetch(API_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'logScan', studentId: bestMatch.label, status: currentScanMode, image: imageBase64 })
+                }).then(res => res.json()).then(res => {
+                    if(res.status === 'success') reportStatus(`🔔 บันทึกสำเร็จ: ${res.name}`, "green");
+                }).catch(() => reportStatus("❌ ส่งข้อมูลล้มเหลว", "red"));
 
-                    setTimeout(() => {
-                        isScanning = false;
-                        reportStatus("🎥 ระบบสแกนพร้อมใช้งาน", "green");
-                    }, 5000);
-                }
+                setTimeout(() => { isScanning = false; reportStatus("✅ ระบบพร้อมสแกน", "green"); }, 5000);
             }
-        }, 1000);
-    });
-}
+        }
+    }, 1000);
+});
 
-// สั่งรันระบบทันทีที่โหลดหน้าเว็บ
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', startSystem);
-} else {
-    startSystem();
-}
+window.onload = () => { setTimeout(startSystem, 1000); };
 </script>
 </body>
 </html>
