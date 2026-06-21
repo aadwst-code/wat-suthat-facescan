@@ -28,41 +28,51 @@
         <video id="video" autoplay muted playsinline></video>
     </div>
 
-    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <!-- ลบ defer ออก เพื่อบังคับให้เบราเซอร์โหลดฐานข้อมูลตัวแม่ให้เสร็จก่อนเสมอ -->
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    
     <script>
-        const video = document.getElementById('video');
-        const statusText = document.getElementById('status');
-        const btnSave = document.getElementById('btnSave');
-        
-        // === สำคัญ: นำลิงก์ Web App URL จาก Google Sheet มาใส่ตรงนี้ด้วยครับ ===
-        const API_URL = 'https://script.google.com/macros/s/AKfycbx07MZwTDZ8yCQ93VASlSaRi0wlai57wN4spNQK-3bQtFPZ43iXPHscvr1jQXVKrQD4tg/exec'; 
+        window.onload = function() {
+            const video = document.getElementById('video');
+            const statusText = document.getElementById('status');
+            const btnSave = document.getElementById('btnSave');
+            
+            // === นำลิงก์ Web App URL จาก Google Sheet มาใส่ตรงนี้ด้วยครับ ===
+            const API_URL = 'https://script.google.com/macros/s/AKfycbx07MZwTDZ8yCQ93VASlSaRi0wlai57wN4spNQK-3bQtFPZ43iXPHscvr1jQXVKrQD4tg/exec'; 
 
-        // ใช้ลิงก์ AI ตัวใหม่ที่ทำงานได้แน่นอน
-        const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+            // ใช้ลิงก์ที่คุณชาติชายทดสอบแล้วว่าผ่านชัวร์
+            const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
 
-        Promise.all([
-          faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-          faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-          faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-        ]).then(() => {
-            statusText.innerText = "AI พร้อมแล้ว กำลังเปิดกล้อง...";
-            return navigator.mediaDevices.getUserMedia({ video: {} });
-        }).then(stream => {
-            video.srcObject = stream;
-            statusText.innerText = "✅ กล้องพร้อมใช้งานแล้ว กรอกรหัสแล้วกดบันทึกได้เลย";
-            statusText.style.color = "green";
-            btnSave.disabled = false; // ปลดล็อกปุ่มให้กดได้
-        }).catch(err => {
-            console.error(err);
-            statusText.innerText = "❌ ไม่สามารถเปิดกล้องได้ (กรุณาอนุญาตให้บราวเซอร์เข้าถึงกล้อง)";
-            statusText.style.color = "red";
-        });
+            statusText.innerText = "กำลังเชื่อมต่อสมองกล AI...";
+
+            Promise.all([
+              faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+              faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+              faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+            ]).then(() => {
+                statusText.innerText = "AI พร้อมแล้ว กำลังเปิดกล้อง...";
+                return navigator.mediaDevices.getUserMedia({ video: {} });
+            }).then(stream => {
+                video.srcObject = stream;
+                statusText.innerText = "✅ กล้องพร้อมใช้งานแล้ว กรอกรหัสแล้วกดบันทึกได้เลย";
+                statusText.style.color = "green";
+                btnSave.disabled = false;
+            }).catch(err => {
+                console.error(err);
+                statusText.innerText = "❌ เกิดข้อผิดพลาดในการโหลดระบบหรือเปิดกล้อง";
+                statusText.style.color = "red";
+            });
+        };
 
         async function captureFace() {
             const studentId = document.getElementById('studentId').value;
+            const statusText = document.getElementById('status');
+            const btnSave = document.getElementById('btnSave');
+            const video = document.getElementById('video');
+            
             if(!studentId) return alert("กรุณากรอกรหัสนักเรียนก่อนครับ!");
 
-            btnSave.disabled = true; // ล็อกปุ่มชั่วคราวกันกดซ้ำ
+            btnSave.disabled = true;
             statusText.innerText = "กำลังสแกนใบหน้า... กรุณามองกล้องนิ่งๆ 📸";
             statusText.style.color = "orange";
             
@@ -70,7 +80,7 @@
                 const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
 
                 if (!detection) {
-                    statusText.innerText = "❌ ไม่พบใบหน้า (ขยับหน้าเข้าใกล้กล้องอีกนิด หรือเพิ่มแสงสว่าง) กรุณาลองใหม่";
+                    statusText.innerText = "❌ ไม่พบใบหน้า (กรุณาขยับเข้าใกล้กล้องหรือเพิ่มแสง) แล้วลองใหม่";
                     statusText.style.color = "red";
                     btnSave.disabled = false;
                     return;
@@ -99,7 +109,7 @@
                 statusText.style.color = "red";
             }
             
-            btnSave.disabled = false; // ปลดล็อกปุ่มให้ใช้งานต่อได้
+            btnSave.disabled = false;
         }
     </script>
 </body>
