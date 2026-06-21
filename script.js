@@ -1,6 +1,9 @@
 const video = document.getElementById('video');
 const statusText = document.getElementById('statusText');
+
+// === ตรงนี้สำคัญมาก: เดี๋ยวเราต้องเอาลิงก์จาก Google Sheet (Web App URL) มาใส่ในเครื่องหมายคำพูดด้านล่าง ===
 const API_URL = 'ใส่_WEB_APP_URL_ของคุณที่นี่'; 
+
 let scanMode = 'เข้า';
 let labeledFaceDescriptors = [];
 let isScanning = false;
@@ -8,35 +11,52 @@ let isScanning = false;
 function setScanMode(mode) {
     scanMode = mode;
     document.getElementById('currentMode').innerText = mode;
+    if(mode === 'เข้า') {
+        document.getElementById('currentMode').style.color = '#1a73e8';
+    } else {
+        document.getElementById('currentMode').style.color = '#d32f2f';
+    }
 }
 
-// 1. โหลด Models จากโฟลเดอร์ models/ ใน GitHub
+// โหลด Models AI จากอินเทอร์เน็ต
+const MODEL_URL = 'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/models';
+
 Promise.all([
-  faceapi.nets.ssdMobilenetv1.loadFromUri('/models'),
-  faceapi.nets.faceRecognitionNet.loadFromUri('/models'),
-  faceapi.nets.faceLandmark68Net.loadFromUri('/models')
-]).then(startVideo).then(loadStudentData);
+  faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+  faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+  faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL)
+]).then(startVideo).then(loadStudentData).catch(err => {
+    statusText.innerText = "เกิดข้อผิดพลาดในการโหลด AI";
+    console.error(err);
+});
 
 function startVideo() {
   navigator.mediaDevices.getUserMedia({ video: {} })
     .then(stream => video.srcObject = stream)
-    .catch(err => console.error("ไม่สามารถเปิดกล้องได้", err));
-}
-
-// 2. ดึงข้อมูลใบหน้าจาก Google Sheet ผ่าน GAS
-async function loadStudentData() {
-    statusText.innerText = "กำลังดาวน์โหลดฐานข้อมูลใบหน้า...";
-    const response = await fetch(API_URL);
-    const students = await response.json();
-    
-    labeledFaceDescriptors = students.map(student => {
-        const floatArray = new Float32Array(student.descriptor);
-        return new faceapi.LabeledFaceDescriptors(student.id, [floatArray]);
+    .catch(err => {
+        console.error("ไม่สามารถเปิดกล้องได้", err);
+        statusText.innerText = "ไม่สามารถเปิดกล้องได้ กรุณาอนุญาตการเข้าถึงกล้อง";
+        statusText.style.color = "red";
     });
-    statusText.innerText = "ระบบพร้อมใช้งาน กรุณาเดินผ่านกล้อง";
 }
 
-// 3. ตรวจจับและเปรียบเทียบใบหน้า
+async function loadStudentData() {
+    statusText.innerText = "กำลังดาวน์โหลดฐานข้อมูลใบหน้าจาก Google Sheet...";
+    try {
+        const response = await fetch(API_URL);
+        const students = await response.json();
+        
+        labeledFaceDescriptors = students.map(student => {
+            const floatArray = new Float32Array(student.descriptor);
+            return new faceapi.LabeledFaceDescriptors(student.id, [floatArray]);
+        });
+        statusText.innerText = "ระบบพร้อมใช้งาน กรุณาเดินผ่านกล้อง";
+    } catch (error) {
+        statusText.innerText = "รอการเชื่อมต่อฐานข้อมูล (กรุณาใส่ API_URL ให้ถูกต้อง)";
+        statusText.style.color = "orange";
+    }
+}
+
 video.addEventListener('play', () => {
   const canvas = faceapi.createCanvasFromMedia(video);
   document.getElementById('videoContainer').append(canvas);
@@ -60,15 +80,13 @@ video.addEventListener('play', () => {
         if (bestMatch.label !== 'unknown') {
             processAttendance(bestMatch.label);
         } else {
-            document.getElementById('soundFail').play();
             statusText.innerText = "ไม่พบข้อมูลในระบบ กรุณาลองใหม่";
             statusText.style.color = "red";
         }
     }
-  }, 1000); // เช็คทุกๆ 1 วินาที
+  }, 1500); 
 });
 
-// 4. ส่งข้อมูลไปบันทึก
 async function processAttendance(studentId) {
     isScanning = true;
     statusText.innerText = `กำลังบันทึกข้อมูล...`;
@@ -81,19 +99,16 @@ async function processAttendance(studentId) {
         const result = await res.json();
         
         if (result.status === 'success') {
-            document.getElementById('soundSuccess').play();
             statusText.innerText = `บันทึกสำเร็จ: ${result.name} (${scanMode})`;
             statusText.style.color = "green";
         }
     } catch (error) {
-        document.getElementById('soundFail').play();
-        statusText.innerText = "เกิดข้อผิดพลาดในการเชื่อมต่อ";
+        statusText.innerText = "บันทึกไม่ได้ ตรวจสอบการเชื่อมต่ออินเทอร์เน็ต";
     }
 
-    // หน่วงเวลา 5 วินาทีเพื่อไม่ให้สแกนซ้ำรัวๆ
     setTimeout(() => { 
         statusText.innerText = "ระบบพร้อมใช้งาน";
         statusText.style.color = "#2e7d32";
         isScanning = false; 
-    }, 5000);
+    }, 4000);
 }
