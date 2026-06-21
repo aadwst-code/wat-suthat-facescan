@@ -44,47 +44,61 @@
 
     <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <!-- คัดลอกตั้งแต่บรรทัดนี้เป็นต้นไป -->
+<!-- คัดลอกตั้งแต่บรรทัดนี้ลงไปแทนที่ของเดิมได้เลยครับ -->
 <script>
-// ลิงก์ระบบหลังบ้านและคลังสมอง AI ของคุณชาติชาย
 const API_URL = 'https://script.google.com/macros/s/AKfycbgyVud6KS3d8f2NksKVbyTgNd60sjuQIVA5_bw2WWatx_tnmaLRu7E77TL8_HcHsdLw/exec'; 
 const MODEL_URL = 'https://aadwst-code.github.io/wat-suthat-facescan/'; 
 
 const video = document.getElementById('video');
-// โค้ดส่วนนี้จะฉลาดขึ้น: ถ้าหา id="status" ไม่เจอ มันจะวิ่งไปหาข้อความสีเขียวบนหน้าจอให้เองอัตโนมัติครับ
 let statusText = document.getElementById('status') || document.querySelector('.text-success') || document.body; 
 let faceMatcher;
 let isScanning = false;
 
-// 🚨 กล่องดักจับ Error บนหน้าจอ (ถ้ามีอะไรพัง แถบสีแดงจะขึ้นเตือนทันที)
-window.onerror = function(msg, url, line) {
-    const errorDiv = document.createElement('div');
-    errorDiv.style = "position:fixed; top:0; left:0; width:100%; background:red; color:white; padding:20px; z-index:9999; font-size:16px; font-family:sans-serif; text-align:left;";
-    errorDiv.innerHTML = `<b>❌ ตรวจพบข้อผิดพลาด:</b> ${msg} (บรรทัดที่: ${line})`;
-    document.body.appendChild(errorDiv);
-    return false;
-};
+// ฟังก์ชันสำหรับบังคับเปลี่ยนข้อความแจ้งสถานะหน้าจอ
+function reportStatus(text, color = "blue") {
+    if (statusText) {
+        statusText.innerText = text;
+        statusText.style.color = color;
+    }
+}
 
 async function startSystem() {
     try {
-        statusText.innerText = "⏳ [ระบบตื่นแล้ว] กำลังดึงฐานข้อมูลและโหลดสมอง AI...";
-        statusText.style.color = "#b45309";
-
+        // ก้าวที่ 1: ตรวจสอบไลบรารีหลัก
+        reportStatus("⏳ [ขั้นตอนที่ 1/4] กำลังตรวจสอบตัวควบคุม AI (faceapi)...", "#b45309");
         if (typeof faceapi === 'undefined') {
-            throw new Error("ไม่พบไลบรารี faceapi กรุณาตรวจสอบว่าในหน้า index.html มีการใส่ลิงก์โหลด face-api.js แล้วหรือยัง");
+            document.write("<h3 style='color:red;padding:20px;'>❌ พังที่ขั้นตอน 1: ไม่พบไฟล์ face-api.js ในระบบ กรุณาตรวจสอบว่าใน index.html มีบรรทัดสคริปต์โหลดไฟล์นี้อยู่ด้านบนไหม</h3>");
+            return;
         }
 
-        // 1. ดึงข้อมูลจาก Google Sheet
-        const response = await fetch(API_URL);
+        // ก้าวที่ 2: ดึงฐานข้อมูลจาก Google Sheet
+        reportStatus("⏳ [ขั้นตอนที่ 2/4] กำลังเชื่อมต่อดึงรายชื่อจาก Google Sheet...", "#b45309");
+        const response = await fetch(API_URL).catch(err => {
+            throw new Error("อินเทอร์เน็ตหรือลิงก์ Web App URL มีปัญหา (Fetch Failed)");
+        });
         const students = await response.json();
+        
+        // ก้าวที่ 3: โหลดสมอง AI
+        reportStatus("⏳ [ขั้นตอนที่ 3/4] กำลังดาวน์โหลดไฟล์สมอง AI จาก GitHub...", "#1e40af");
+        try {
+            // ลองโหลดจากโฟลเดอร์หลักก่อน
+            await Promise.all([
+                faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+                faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+            ]);
+        } catch(e) {
+            // ถ้าไม่เจอ ให้ลองดึงจากโฟลเดอร์ย่อย /models/
+            reportStatus("⏳ ไม่พบไฟล์ในโฟลเดอร์หลัก กำลังค้นหาในโฟลเดอร์ /models/ ...", "#1e40af");
+            await Promise.all([
+                faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL + 'models/'),
+                faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL + 'models/'),
+                faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL + 'models/')
+            ]);
+        }
 
-        // 2. โหลดโมเดล AI
-        await Promise.all([
-            faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-            faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-            faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-        ]);
-
-        // 3. เตรียมข้อมูลใบหน้า
+        // ก้าวที่ 4: จัดเตรียมการเปรียบเทียบใบหน้า
+        reportStatus("⏳ [ขั้นตอนที่ 4/4] กำลังประมวลผลฐานข้อมูลใบหน้า...", "#1e40af");
         const labeledFaceDescriptors = students.map(student => {
             if (!student.descriptor || student.descriptor.length === 0) return null;
             return new faceapi.LabeledFaceDescriptors(student.id, [new Float32Array(student.descriptor)]);
@@ -92,16 +106,17 @@ async function startSystem() {
 
         if (labeledFaceDescriptors.length > 0) {
             faceMatcher = new faceapi.FaceMatcher(labeledFaceDescriptors, 0.5); 
-            statusText.innerText = "✅ ระบบ AI พร้อมใช้งาน กำลังเปิดกล้อง...";
-            statusText.style.color = "green";
+            reportStatus("✅ ระบบพร้อมใช้งาน 100% กำลังเปิดกล้อง...", "green");
             startVideo();
         } else {
-            statusText.innerText = "⚠️ เชื่อมต่อสำเร็จ! แต่ไม่มีข้อมูลใบหน้าในคอลัมน์ L (กรุณาไปลงทะเบียนใบหน้าก่อน)";
-            statusText.style.color = "#d97706";
+            reportStatus("⚠️ ตรวจสอบสำเร็จ แต่คอลัมน์ L ในกูเกิลชีตยังว่างเปล่า (กรุณาไปลงทะเบียนใบหน้าก่อนนะครู)", "#d97706");
             startVideo();
         }
+
     } catch (error) {
-        throw new Error(error.message || "ไม่สามารถโหลดระบบ AI ได้");
+        // หากมีจุดใดพัง ข้อความสีเขียวจะกลายเป็นสีแดง และบอกสาเหตุทันที!
+        reportStatus(`❌ พังเพราะ: ${error.message}`, "red");
+        console.error(error);
     }
 }
 
@@ -110,8 +125,7 @@ function startVideo() {
     navigator.mediaDevices.getUserMedia({ video: {} })
         .then(stream => { video.srcObject = stream; })
         .catch(err => {
-            statusText.innerText = "❌ ไม่สามารถเปิดกล้องได้ (กรุณากดอนุญาตให้สิทธิ์เข้าถึงกล้อง)";
-            statusText.style.color = "red";
+            reportStatus("❌ ไม่สามารถเปิดกล้องได้ (กรุณากดอนุญาตให้สิทธิ์เข้าถึงกล้องในเบราว์เซอร์)", "red");
         });
 }
 
@@ -136,7 +150,7 @@ if (video) {
                 if (bestMatch.label !== 'unknown' && !isScanning) {
                     isScanning = true;
                     const studentId = bestMatch.label;
-                    statusText.innerText = `⏳ ตรวจพบรหัส: ${studentId} กำลังส่งข้อมูล...`;
+                    reportStatus(`⏳ ตรวจพบรหัส: ${studentId} กำลังส่งข้อมูล...`, "#b45309");
 
                     const snapCanvas = document.createElement('canvas');
                     snapCanvas.width = video.videoWidth;
@@ -151,15 +165,13 @@ if (video) {
                         });
                         const result = await res.json();
                         if(result.status === 'success') {
-                            statusText.innerText = `🔔 บันทึกสำเร็จ: ${result.name}`;
-                            statusText.style.color = "blue";
+                            reportStatus(`🔔 บันทึกสำเร็จ: ${result.name}`, "blue");
                         }
                     } catch(e) {}
 
                     setTimeout(() => {
                         isScanning = false;
-                        statusText.innerText = "🎥 ระบบสแกนพร้อมใช้งาน";
-                        statusText.style.color = "green";
+                        reportStatus("🎥 ระบบสแกนพร้อมใช้งาน", "green");
                     }, 5000);
                 }
             }
@@ -167,13 +179,13 @@ if (video) {
     });
 }
 
-// สั่งรันระบบทันที
+// สั่งลุยระบบทันที
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', startSystem);
 } else {
     startSystem();
 }
 </script>
-<!-- สิ้นสุดซอร์สโค้ดที่จะวางทับครับ -->
+<!-- สิ้นสุดซอร์สโค้ดที่จะนำไปวางครับ -->
 </body>
 </html>
