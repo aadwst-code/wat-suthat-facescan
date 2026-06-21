@@ -1,5 +1,5 @@
 // ลิงก์ระบบหลังบ้านของคุณชาติชาย
-const API_URL = 'https://script.google.com/macros/s/AKfycbz0IVSGApfnjuoYS1dE80B8CRQbF_RPVPVHfGGuWiZhA9Bc1g1pnkFB6oluuOusqGGUyg/exec'; 
+const API_URL = 'https://script.google.com/macros/s/AKfycbw3lN_REvDhfQmdyKWJihcuNmWH_RtUdemK0sihGIHSmVZ643PwkigKz1xm14Q25LzMHw/exec'; 
 // ลิงก์คลังสมอง AI ของคุณชาติชาย
 const MODEL_URL = 'https://aadwst-code.github.io/wat-suthat-facescan/'; 
 
