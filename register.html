@@ -32,14 +32,14 @@
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     
     <script>
+        // ย้ายลิงก์ออกมารับใช้นอกฟังก์ชัน เพื่อให้ข้างล่างมองเห็นด้วย
+        const API_URL = 'https://script.google.com/macros/s/AKfycbgyVuD6KS3d8f2NkskVbyTgNd60sjuQIVA5_bw20Watx_tnmaLRu7E77T7L8_HcHsdLw/exec';
+
         window.onload = function() {
             const video = document.getElementById('video');
             const statusText = document.getElementById('status');
             const btnSave = document.getElementById('btnSave');
             
-            // === นำลิงก์ Web App URL จาก Google Sheet มาใส่ตรงนี้ด้วยครับ ===
-            const API_URL = 'https://script.google.com/macros/s/AKfycbygVuD6KS3d8f2NksKVbyTgNd6OsjuQIVA5_bw20WVatx_tnmaLRu7E7T77L8_HcHsdLw/exec'; 
-
             // ใช้ลิงก์ที่คุณชาติชายทดสอบแล้วว่าผ่านชัวร์
             const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
 
